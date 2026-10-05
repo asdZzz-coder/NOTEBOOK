@@ -1,0 +1,533 @@
+<Window x:Class="notebook.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Calendar Notes" Height="860" Width="1260" MinHeight="640" MinWidth="1040"
+        WindowStartupLocation="CenterScreen"
+        Icon="Assets/app.ico"
+        Background="{DynamicResource AppBgBrush}"
+        FontFamily="{StaticResource UiFont}"
+        Foreground="{DynamicResource TextBrush}"
+        UseLayoutRounding="True"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Window.Resources>
+        <!-- 卡片：白底、細框、大圓角；陰影放在另一層（見 CardShadow），避免內文被模糊 -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="18"/>
+        </Style>
+        <Style x:Key="CardShadow" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="4" Direction="270" Opacity="0.07" Color="#1E1B4B"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 輸入框上的灰色提示文字：輸入框為空時才顯示 -->
+        <Style x:Key="Placeholder" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+
+        <!-- 月曆的一格：滑過變淺灰，選取的那天淡紫底 + 強調色框 -->
+        <Style x:Key="DayCellButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Margin="3" CornerRadius="10" Padding="6,4,6,3" BorderThickness="1.5"
+                                BorderBrush="Transparent" Background="Transparent" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 月曆格子內容：日期數字（今天是實心圓）+ 最多三則記事標籤 + 「+N」 -->
+        <DataTemplate x:Key="DayCellTemplate">
+            <Button Style="{StaticResource DayCellButton}" Click="Day_Click" MouseDoubleClick="Day_DoubleClick"
+                    AutomationProperties.Name="{Binding}">
+                <Grid x:Name="Root" ClipToBounds="True">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Width="24" Height="24" HorizontalAlignment="Left">
+                        <Ellipse x:Name="TodayDot" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                        <TextBlock x:Name="DayNum" Text="{Binding Day}" FontSize="13" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                    <StackPanel Grid.Row="1" Margin="0,2,0,0">
+                        <ItemsControl ItemsSource="{Binding Previews}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="5" Background="{Binding ColorSoftHex}" Padding="5,0,4,1" Margin="0,1,0,0"
+                                            ToolTip="{Binding DisplayTitle}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Width="5" Height="5" Fill="{Binding ColorHex}" VerticalAlignment="Center" Margin="0,1,5,0"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayTitle}" FontSize="11"
+                                                       Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="More" Text="{Binding MoreText}" FontSize="11" FontWeight="SemiBold" Margin="4,2,0,0"
+                                   Foreground="{DynamicResource MutedBrush}" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Grid>
+            </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsWeekend}" Value="True">
+                    <Setter TargetName="DayNum" Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsToday}" Value="True">
+                    <Setter TargetName="TodayDot" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="DayNum" Property="Foreground" Value="White"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasMore}" Value="True">
+                    <Setter TargetName="More" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
+                    <Setter TargetName="Root" Property="Opacity" Value="0.38"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 右側當天記事清單：顏色圓點 + 標題 + 內容預覽 -->
+        <DataTemplate x:Key="NoteTemplate">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Ellipse Width="10" Height="10" Fill="{Binding ColorHex}" VerticalAlignment="Top" Margin="2,6,12,0"/>
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="TitleText" Text="{Binding DisplayTitle}" FontSize="14" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="PreviewText" Text="{Binding Preview}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Preview}" Value="">
+                    <Setter TargetName="PreviewText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 搜尋結果：顏色條 + 日期 + 標題 + 內容預覽 -->
+        <DataTemplate x:Key="SearchTemplate">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="4" CornerRadius="2" Background="{Binding Note.ColorHex}" Margin="2,2,12,2"/>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding DateText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                    <TextBlock Text="{Binding Note.DisplayTitle}" FontSize="14" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="PreviewText" Text="{Binding Note.Preview}" FontSize="12" Foreground="{DynamicResource MutedBrush}"
+                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Note.Preview}" Value="">
+                    <Setter TargetName="PreviewText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 標籤顏色：選到的那個外面多一圈 -->
+        <Style x:Key="ColorSwatch" TargetType="Button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent">
+                            <Ellipse x:Name="Ring" StrokeThickness="2" Stroke="{Binding Hex}" Visibility="Hidden"/>
+                            <Ellipse x:Name="Dot" Width="20" Height="20" Fill="{Binding Hex}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Dot" Property="Width" Value="22"/>
+                                <Setter TargetName="Dot" Property="Height" Value="22"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Ring" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="28,22,28,14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===== 標題列 ===== -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,20">
+            <!-- 工具列：一條白色膠囊裡放幾個透明按鈕 -->
+            <Border DockPanel.Dock="Right" VerticalAlignment="Center" Background="{DynamicResource CardBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="4">
+                <StackPanel Orientation="Horizontal">
+                    <!-- 主題：按一下依序切換 跟隨系統 → 淺色 → 深色（圖示與提示文字由程式設定） -->
+                    <Button x:Name="ThemeButton" Style="{StaticResource GhostButton}" Padding="10,8" Click="Theme_Click">
+                        <TextBlock x:Name="ThemeIcon" Style="{StaticResource Icon}" Text="&#xE770;"/>
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}" ToolTip="{DynamicResource S_btn_lang_tip}" Click="Lang_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE774;" Style="{StaticResource Icon}" Margin="0,0,8,0"/>
+                            <TextBlock Text="{DynamicResource S_btn_lang}"/>
+                        </StackPanel>
+                    </Button>
+                    <Border Width="1" Margin="4,8" Background="{DynamicResource LineBrush}"/>
+                    <Button Style="{StaticResource GhostButton}" Click="Export_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE898;" Style="{StaticResource Icon}" Margin="0,0,8,0"/>
+                            <TextBlock Text="{DynamicResource S_btn_export}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}" Click="Import_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" Margin="0,0,8,0"/>
+                            <TextBlock Text="{DynamicResource S_btn_import}"/>
+                        </StackPanel>
+                    </Button>
+                    <Border Width="1" Margin="4,8" Background="{DynamicResource LineBrush}"/>
+                    <Button Style="{StaticResource GhostButton}" ToolTip="{DynamicResource S_btn_shortcut_tip}" Click="Shortcut_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7F4;" Style="{StaticResource Icon}" Margin="0,0,8,0"/>
+                            <TextBlock Text="{DynamicResource S_btn_shortcut}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}" Click="CheckUpdate_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE895;" Style="{StaticResource Icon}" Margin="0,0,8,0"/>
+                            <TextBlock Text="{DynamicResource S_btn_check_update}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Border Width="46" Height="46" CornerRadius="14" Background="{DynamicResource AccentGradient}">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="14" ShadowDepth="3" Direction="270" Opacity="0.25" Color="#4F46E5"/>
+                </Border.Effect>
+                <TextBlock Text="&#xE787;" Style="{StaticResource Icon}" FontSize="21" Foreground="White"
+                           HorizontalAlignment="Center"/>
+            </Border>
+            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource S_app_title}" FontFamily="{StaticResource DisplayFont}"
+                           FontSize="22" FontWeight="SemiBold"/>
+                <TextBlock x:Name="CountText" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="1,1,0,0"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- ===== 主內容 ===== -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="390"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左：月曆（搜尋時換成搜尋結果） -->
+            <Border Grid.Column="0" Style="{StaticResource CardShadow}"/>
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="16,16,16,14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 月份切換 + 搜尋 -->
+                    <DockPanel Margin="4,0,0,12">
+                        <Grid DockPanel.Dock="Right" Width="250">
+                            <TextBox x:Name="SearchBox" Padding="38,9,12,9" TextChanged="SearchBox_TextChanged"/>
+                            <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" Foreground="{DynamicResource SubtleBrush}"
+                                       Margin="14,0,0,0" IsHitTestVisible="False"/>
+                            <TextBlock Text="{DynamicResource S_search_placeholder}" Margin="40,0,0,0" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Placeholder}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="MonthTitle" FontFamily="{StaticResource DisplayFont}" FontSize="21" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" MinWidth="150"/>
+                            <Button Content="&#xE76B;" Style="{StaticResource FieldIconButton}" Margin="6,0,0,0"
+                                    ToolTip="{DynamicResource S_prev_month_tip}" Click="PrevMonth_Click"/>
+                            <Button Content="&#xE76C;" Style="{StaticResource FieldIconButton}" Margin="2,0,0,0"
+                                    ToolTip="{DynamicResource S_next_month_tip}" Click="NextMonth_Click"/>
+                            <Button Content="{DynamicResource S_btn_today}" FontSize="12" Padding="12,5" Margin="10,0,0,0"
+                                    Click="Today_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 星期列 -->
+                    <ItemsControl x:Name="WeekdayHeader" Grid.Row="1" Focusable="False" Margin="0,0,0,4">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="7" Rows="1"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock x:Name="Label" Text="{Binding Text}" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource MutedBrush}" Margin="12,0,0,0"/>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsWeekend}" Value="True">
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- 6 × 7 月曆格（滾輪可換月） -->
+                    <ItemsControl x:Name="MonthGrid" Grid.Row="2" Focusable="False" ItemTemplate="{StaticResource DayCellTemplate}"
+                                  PreviewMouseWheel="MonthGrid_PreviewMouseWheel" SizeChanged="MonthGrid_SizeChanged">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="7" Rows="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
+                    <!-- 搜尋結果（有輸入搜尋文字時蓋在月曆上） -->
+                    <Grid x:Name="SearchPanel" Grid.Row="1" Grid.RowSpan="2" Background="{DynamicResource CardBrush}" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="SearchCountText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}"
+                                   Margin="6,0,0,8"/>
+                        <ListBox x:Name="SearchList" Grid.Row="1" Style="{StaticResource EntryListStyle}" SelectionMode="Single"
+                                 ItemTemplate="{StaticResource SearchTemplate}" SelectionChanged="SearchList_SelectionChanged"/>
+                        <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                            <Border Width="64" Height="64" CornerRadius="20" Background="{DynamicResource AccentSoftBrush}"
+                                    HorizontalAlignment="Center" Margin="0,0,0,14">
+                                <TextBlock Text="&#xE721;" Style="{StaticResource Icon}" FontSize="26"
+                                           Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{DynamicResource S_search_none}" TextAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=SearchList}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 右：選取那天的記事 + 編輯 -->
+            <Border Grid.Column="2" Style="{StaticResource CardShadow}"/>
+            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="20,20,20,18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 日期標題 + 新增 -->
+                    <DockPanel Margin="0,0,0,14">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Padding="12,8" VerticalAlignment="Center"
+                                ToolTip="{DynamicResource S_btn_new_note_tip}" Click="NewNote_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,7,0"/>
+                                <TextBlock Text="{DynamicResource S_btn_new_note}"/>
+                            </StackPanel>
+                        </Button>
+                        <Border Width="36" Height="36" CornerRadius="11" Background="{DynamicResource AccentSoftBrush}">
+                            <TextBlock Text="&#xE787;" Style="{StaticResource Icon}" FontSize="16"
+                                       Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Margin="11,0,8,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="DayTitleText" FontFamily="{StaticResource DisplayFont}" FontSize="17" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="DaySubText" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,1,0,0"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- 當天記事清單 -->
+                    <Grid Grid.Row="1" MinHeight="70">
+                        <ListBox x:Name="DayNotesList" Style="{StaticResource EntryListStyle}" SelectionMode="Single" MaxHeight="230"
+                                 ItemTemplate="{StaticResource NoteTemplate}" SelectionChanged="DayNotesList_SelectionChanged"/>
+                        <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="14,10"
+                                IsHitTestVisible="False">
+                            <TextBlock Text="{DynamicResource S_day_empty}" FontSize="12" LineHeight="19" TextAlignment="Center"
+                                       Foreground="{DynamicResource SubtleBrush}" VerticalAlignment="Center"/>
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Items.Count, ElementName=DayNotesList}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="2" Height="1" Background="{DynamicResource LineBrush}" Margin="0,14,0,16"/>
+
+                    <!-- 編輯區：打字就自動儲存 -->
+                    <Grid Grid.Row="3">
+                        <Grid x:Name="EditorPanel" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{DynamicResource S_lbl_title}" Style="{StaticResource FieldLabel}"/>
+                            <Grid Grid.Row="1" Margin="0,0,0,14">
+                                <TextBox x:Name="TitleBox" FontSize="15" FontWeight="SemiBold" TextChanged="TitleBox_TextChanged"
+                                         KeyDown="TitleBox_KeyDown"/>
+                                <TextBlock Text="{DynamicResource S_title_placeholder}" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Placeholder}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=TitleBox}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+
+                            <TextBlock Grid.Row="2" Text="{DynamicResource S_lbl_color}" Style="{StaticResource FieldLabel}"/>
+                            <ItemsControl x:Name="ColorPicker" Grid.Row="3" Margin="0,0,0,14" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource ColorSwatch}" ToolTip="{Binding Name}" Click="Color_Click"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Grid.Row="4" Text="{DynamicResource S_lbl_body}" Style="{StaticResource FieldLabel}"/>
+                            <Grid Grid.Row="5">
+                                <TextBox x:Name="BodyBox" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Padding="12,10"
+                                         TextChanged="BodyBox_TextChanged"/>
+                                <TextBlock Text="{DynamicResource S_body_placeholder}" Margin="14,11,0,0" VerticalAlignment="Top">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Placeholder}">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=BodyBox}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Grid>
+
+                        <!-- 沒有選記事時 -->
+                        <StackPanel x:Name="EditorHint" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                            <Border Width="64" Height="64" CornerRadius="20" Background="{DynamicResource AccentSoftBrush}"
+                                    HorizontalAlignment="Center" Margin="0,0,0,14">
+                                <TextBlock Text="&#xE70B;" Style="{StaticResource Icon}" FontSize="26"
+                                           Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{DynamicResource S_editor_hint}" TextAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 底部：儲存狀態 + 改日期 / 刪除 -->
+                    <DockPanel x:Name="EditorActions" Grid.Row="4" Margin="0,14,0,0" Visibility="Collapsed">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource DangerButton}" Padding="14,8" Click="Delete_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74D;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,7,0"/>
+                                <TextBlock Text="{DynamicResource S_btn_delete}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Right" Padding="14,8" Margin="0,0,8,0" ToolTip="{DynamicResource S_btn_move_tip}"
+                                Click="Move_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8AB;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,7,0"/>
+                                <TextBlock Text="{DynamicResource S_btn_move}"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource Icon}" FontSize="11" Foreground="{DynamicResource SubtleBrush}"
+                                       Margin="2,1,6,0"/>
+                            <TextBlock x:Name="SavedText" FontSize="12" Foreground="{DynamicResource SubtleBrush}"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ===== 頁尾 ===== -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="4,12,0,0">
+            <Ellipse Width="7" Height="7" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock x:Name="StatusText" FontSize="12" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+        </StackPanel>
+    </Grid>
+</Window>
