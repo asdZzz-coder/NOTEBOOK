@@ -19,8 +19,14 @@ namespace notebook
                 return;
             }
 
-            // 安裝版使用固定的工作列身分，更新後新版視窗才會跟工作列釘選合併
-            if (new UpdateService().IsInstalled) DesktopShortcutService.ApplyAppId();
+            if (args.Contains(InstallService.UninstallArg, StringComparer.OrdinalIgnoreCase))
+            {
+                Uninstall();
+                return;
+            }
+
+            // 安裝版：補開始功能表捷徑、更新「應用程式」清單；剛安裝完再建立桌面捷徑
+            InstallService.OnStartup(args, new UpdateService().Version);
 
             var app = new App();
             app.InitializeComponent();
@@ -42,6 +48,31 @@ namespace notebook
             var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
                 System.Text.Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(custom).ToUpperInvariant())))[..16];
             return name + "." + hash;
+        }
+
+        /// <summary>從「設定 → 應用程式」按解除安裝時執行。</summary>
+        private static void Uninstall()
+        {
+            var title = Loc.T("uninstall_title");
+            if (!InstallService.IsInstalled)
+            {
+                MessageBox.Show(Loc.T("uninstall_not_installed"), title);
+                return;
+            }
+
+            var ok = MessageBox.Show(Loc.T("uninstall_confirm"), title,
+                MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+            if (ok != MessageBoxResult.Yes) return;
+
+            try
+            {
+                InstallService.Uninstall();
+                MessageBox.Show(Loc.T("uninstall_done", DataStore.DataDirectory), title, MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(Loc.T("uninstall_failed", ex.Message), title, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

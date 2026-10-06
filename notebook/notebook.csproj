@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>CalendarNotes</AssemblyName>
     <RootNamespace>notebook</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <StartupObject>notebook.Program</StartupObject>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <!-- 只保留英文與繁體中文的語系資源，省掉其他語言資料夾 -->

@@ -187,10 +187,17 @@ namespace notebook.Services
             ("save_failed", "儲存失敗，記事尚未寫入硬碟：{0}", "Save failed — notes were not written to disk: {0}"),
             ("shortcut_title", "桌面捷徑", "Desktop Shortcut"),
             ("shortcut_done", "已在桌面建立捷徑", "Desktop shortcut created"),
-            ("shortcut_no_source", "找不到安裝版的開始功能表捷徑，請重新執行「安裝.cmd」後再試。",
-                                   "The installed app's Start menu shortcut was not found. Please run \"安裝.cmd\" again and retry."),
             ("shortcut_failed", "建立桌面捷徑失敗：{0}", "Failed to create the desktop shortcut: {0}"),
             ("already_running", "日曆記事本已經在執行中。", "Calendar Notes is already running."),
+
+            // ----- 解除安裝（從「設定 → 應用程式」） -----
+            ("uninstall_title", "解除安裝 日曆記事本", "Uninstall Calendar Notes"),
+            ("uninstall_not_installed", "這不是安裝版的日曆記事本，不需要解除安裝。",
+                                        "This is not an installed copy of Calendar Notes, so there is nothing to uninstall."),
+            ("uninstall_confirm", "確定要解除安裝「日曆記事本」嗎？\n\n你的記事會保留在電腦裡，之後重新安裝會繼續使用。",
+                                  "Uninstall Calendar Notes?\n\nYour notes stay on this computer and will be used again if you reinstall."),
+            ("uninstall_done", "已解除安裝。\n\n記事保留在：\n{0}", "Uninstalled.\n\nYour notes are kept in:\n{0}"),
+            ("uninstall_failed", "解除安裝失敗：{0}", "Uninstall failed: {0}"),
 
             // ----- 更新 -----
             ("update_title", "檢查更新", "Check for Updates"),
