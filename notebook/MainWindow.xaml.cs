@@ -261,7 +261,7 @@ namespace notebook
         private void MonthGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             e.Handled = true;
-            int step = _wheelPager.OnWheel(e.Delta, (uint)e.Timestamp);
+            int step = _wheelPager.OnWheel(e.Delta, e.Timestamp);
             if (step != 0) ShiftMonth(step);
         }
 
