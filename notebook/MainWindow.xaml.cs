@@ -167,7 +167,7 @@ namespace notebook
 
         private async Task CheckForUpdateAsync(bool manual)
         {
-            if (!_updater.IsInstalled)
+            if (!_updater.IsRelease)
             {
                 if (manual)
                     MessageBox.Show(Loc.T("update_dev"), Loc.T("update_title"));
@@ -180,6 +180,14 @@ namespace notebook
                 if (info == null)
                 {
                     if (manual) MessageBox.Show(Loc.T("update_latest", _updater.CurrentVersion), Loc.T("update_title"));
+                    return;
+                }
+
+                // 從 APP 啟動器開的：新版由啟動器下載，這裡只提醒（啟動時的自動檢查不打擾，啟動器自己會標示可更新）
+                if (!_updater.IsInstalled)
+                {
+                    if (manual)
+                        MessageBox.Show(Loc.T("update_launcher", info.Version, _updater.CurrentVersion), Loc.T("update_found_title"), MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -495,7 +503,7 @@ namespace notebook
         private void UpdateStatus()
         {
             // 視窗標題列顯示版本：安裝版為「日曆記事本 v1.0.0」，直接從 Visual Studio 執行則標示開發版
-            Title = _updater.IsInstalled ? Loc.T("title_installed", _updater.CurrentVersion) : Loc.T("title_dev");
+            Title = _updater.IsRelease ? Loc.T("title_installed", _updater.CurrentVersion) : Loc.T("title_dev");
             CountText.Text = Loc.T("count_text", _notes.Count(n => !n.IsEmpty));
             StatusText.Text = Loc.T("version_text", _updater.CurrentVersion);
         }
