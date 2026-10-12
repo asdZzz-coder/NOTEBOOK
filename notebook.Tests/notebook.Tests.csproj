@@ -27,6 +27,7 @@
     <Compile Include="..\notebook\Services\CalendarService.cs" Link="Source\CalendarService.cs" />
     <Compile Include="..\notebook\Services\ExcelService.cs" Link="Source\ExcelService.cs" />
     <Compile Include="..\notebook\Services\Loc.cs" Link="Source\Loc.cs" />
+    <Compile Include="..\notebook\Services\WheelPager.cs" Link="Source\WheelPager.cs" />
     <Compile Include="..\notebook\Models\NoteEntry.cs" Link="Source\NoteEntry.cs" />
     <Compile Include="..\notebook\Models\DayCell.cs" Link="Source\DayCell.cs" />
   </ItemGroup>

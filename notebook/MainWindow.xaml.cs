@@ -30,6 +30,9 @@ namespace notebook
         /// <summary>打字時延遲一下再存檔，不會每按一個鍵就寫一次硬碟。</summary>
         private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
 
+        /// <summary>月曆上的滾輪：一次滾動只換一個月。</summary>
+        private readonly WheelPager _wheelPager = new();
+
         private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
         public MainWindow()
@@ -257,8 +260,9 @@ namespace notebook
 
         private void MonthGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            ShiftMonth(e.Delta > 0 ? -1 : 1);
             e.Handled = true;
+            int step = _wheelPager.OnWheel(e.Delta, (uint)e.Timestamp);
+            if (step != 0) ShiftMonth(step);
         }
 
         private void Day_Click(object sender, RoutedEventArgs e)
